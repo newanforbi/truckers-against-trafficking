@@ -1,52 +1,40 @@
 # See it. Snap it. Report it.
 
-A cross-platform **iOS and Android** field toolkit for truckers and the traveling public. One Expo / React Native codebase. Recognize trafficking red flags, snap evidence only when it is safe, and read a structured tip to 911 or the National Human Trafficking Hotline.
+A Citizen-style **iOS, Android, and web** platform for truckers: snap a photo at a truck stop, pin it on the map, and post it where officers can open the picture, the location, and the write-up.
 
-This repository is an independent project inspired by [Truckers Against Trafficking](https://tatnonprofit.org/)’s public campaign. It is **not** the official TAT app.
+This is an independent project inspired by [Truckers Against Trafficking](https://tatnonprofit.org/). It is **not** the official TAT app.
 
-## What the app does
+## What it does
 
-- **See it** — Highway and truck-stop red flags from public TAT and U.S. DOT materials
-- **Snap it** — Camera or photo library, plus GPS, mile marker, vehicles, and people
-- **Report it** — One-tap 911, U.S. / Canada / Mexico hotlines, SMS to 233733, copy or share a scripted tip
-- Drafts stay on the device. Nothing is uploaded to a custom server.
+- **Live map** — Dark map of tips with photo pins, like a highway incident feed
+- **Snap** — Camera or library, GPS or tap-to-pin, then post to the platform
+- **Officer desk** — Restricted case file: photos, notes, and status (`new` → `reviewing` → `forwarded` → `closed`)
+- **Learn / Call** — Red flags, 911, and national hotlines
 
-Emergency: **911**. U.S. hotline: **1-888-373-7888**. Text: **233733**. Canada: **1-833-900-1010**.
+Emergency: **911**. U.S. hotline: **1-888-373-7888**. Text: **233733**.
 
-## Run it on a phone
+Do not approach a suspected trafficker. A photo is only useful if you can take it without putting anyone at risk.
 
-You do not need Xcode or Android Studio to try the app.
-
-1. Install [Node.js LTS](https://nodejs.org/).
-2. Install dependencies:
+## Run the platform
 
 ```bash
 npm install
+npm run server
 ```
 
-3. Start Expo:
+In another terminal:
 
 ```bash
-npm start
+npm run web
 ```
 
-4. Install **Expo Go** on your iPhone or Android phone, then scan the QR code.
+Or on a phone: `npm start` and scan the QR code with Expo Go.
 
-```bash
-npm run ios      # macOS + Xcode / Expo Go
-npm run android  # Android emulator or Expo Go
-npm run web      # browser preview
-```
+- App preview: http://localhost:8081
+- Officer desk: http://localhost:3001/desk
+- Demo officer key: `WATCH`
 
-## Store builds
-
-When you are ready for TestFlight or Play Console:
-
-```bash
-npx eas-cli@latest login
-npx eas-cli@latest build --platform ios
-npx eas-cli@latest build --platform android
-```
+If you open Expo Go on a physical phone, set **Platform URL** on the Call tab to your computer’s LAN address, for example `http://192.168.1.20:3001`.
 
 ## Checks
 
@@ -55,6 +43,4 @@ npm test
 npm run typecheck
 ```
 
-## Safety
-
-Do not approach a suspected trafficker. Do not try to rescue someone yourself. If you cannot take a photo safely, skip it and still call.
+Tips are stored in `data/reports.json` and photos in `data/uploads/`. Nothing here replaces 911 or the official hotline.

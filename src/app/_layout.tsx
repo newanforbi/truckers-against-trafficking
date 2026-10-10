@@ -4,6 +4,7 @@ import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { ReportProvider } from '@/context/ReportContext';
+import { SessionProvider } from '@/context/SessionContext';
 import { colors } from '@/theme';
 
 function PhoneShell({ children }: { children: ReactNode }) {
@@ -21,17 +22,19 @@ function PhoneShell({ children }: { children: ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <ReportProvider>
-      <StatusBar style="light" />
-      <PhoneShell>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.bg },
-          }}
-        />
-      </PhoneShell>
-    </ReportProvider>
+    <SessionProvider>
+      <ReportProvider>
+        <StatusBar style="light" />
+        <PhoneShell>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+            }}
+          />
+        </PhoneShell>
+      </ReportProvider>
+    </SessionProvider>
   );
 }
 

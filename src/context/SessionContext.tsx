@@ -1,0 +1,141 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import { DEFAULT_API_URL, OFFICER_DEMO_KEY, fetchReports, type PlatformReport } from '@/lib/api';
+
+const REPORTER_KEY = 'see-snap-report.reporter-id';
+const ROLE_KEY = 'see-snap-report.role';
+const API_KEY = 'see-snap-report.api-base';
+
+type Role = 'driver' | 'officer';
+
+type SessionValue = {
+  ready: boolean;
+  role: Role;
+  reporterId: string;
+  apiBase: string;
+  officerKey: string;
+  reports: PlatformReport[];
+  error: string | null;
+  setApiBase: (value: string) => void;
+  unlockOfficer: (key: string) => Promise<boolean>;
+  lockOfficer: () => void;
+  refresh: () => Promise<void>;
+};
+
+const SessionContext = createContext<SessionValue | null>(null);
+
+function createReporterId(): string {
+  return `driver-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function SessionProvider({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const [role, setRole] = useState<Role>('driver');
+  const [reporterId, setReporterId] = useState('');
+  const [apiBase, setApiBaseState] = useState(DEFAULT_API_URL);
+  const [officerKey, setOfficerKey] = useState('');
+  const [reports, setReports] = useState<PlatformReport[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      const next = await fetchReports(apiBase);
+      setReports(next);
+      setError(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Platform is offline');
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [storedId, storedRole, storedApi] = await Promise.all([
+        AsyncStorage.getItem(REPORTER_KEY),
+        AsyncStorage.getItem(ROLE_KEY),
+        AsyncStorage.getItem(API_KEY),
+      ]);
+      if (cancelled) {
+        return;
+      }
+      const id = storedId ?? createReporterId();
+      if (!storedId) {
+        await AsyncStorage.setItem(REPORTER_KEY, id);
+      }
+      setReporterId(id);
+      if (storedRole === 'officer') {
+        setRole('officer');
+        setOfficerKey(OFFICER_DEMO_KEY);
+      }
+      if (storedApi) {
+        setApiBaseState(storedApi);
+      }
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+    refresh().catch(() => undefined);
+    const timer = setInterval(() => {
+      refresh().catch(() => undefined);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [ready, apiBase]);
+
+  const setApiBase = (value: string) => {
+    const next = value.trim().replace(/\/$/, '') || DEFAULT_API_URL;
+    setApiBaseState(next);
+    AsyncStorage.setItem(API_KEY, next).catch(() => undefined);
+  };
+
+  const unlockOfficer = async (key: string) => {
+    const trimmed = key.trim();
+    if (trimmed !== OFFICER_DEMO_KEY) {
+      return false;
+    }
+    setOfficerKey(trimmed);
+    setRole('officer');
+    await AsyncStorage.setItem(ROLE_KEY, 'officer');
+    return true;
+  };
+
+  const lockOfficer = () => {
+    setRole('driver');
+    setOfficerKey('');
+    AsyncStorage.setItem(ROLE_KEY, 'driver').catch(() => undefined);
+  };
+
+  const value = useMemo(
+    () => ({
+      ready,
+      role,
+      reporterId,
+      apiBase,
+      officerKey,
+      reports,
+      error,
+      setApiBase,
+      unlockOfficer,
+      lockOfficer,
+      refresh,
+    }),
+    [ready, role, reporterId, apiBase, officerKey, reports, error],
+  );
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+export function useSession() {
+  const value = useContext(SessionContext);
+  if (!value) {
+    throw new Error('useSession must be used inside SessionProvider');
+  }
+  return value;
+}

@@ -1,22 +1,29 @@
 import * as Clipboard from 'expo-clipboard';
+import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/ActionButton';
 import { Field } from '@/components/Field';
+import { LiveMap } from '@/components/LiveMap';
 import { PhotoStrip } from '@/components/PhotoStrip';
 import { SafetyBanner } from '@/components/SafetyBanner';
 import { Screen } from '@/components/Screen';
 import { useReport } from '@/context/ReportContext';
+import { useSession } from '@/context/SessionContext';
 import { EMERGENCY_PHONE, TEXT_TIP, hotlines } from '@/data/hotlines';
-import { formatCoordinates, formatObservedAt, formatTip, hasActionableTip, tipSummary } from '@/lib/formatReport';
+import { submitReport } from '@/lib/api';
+import { formatCoordinates, formatObservedAt, formatTip, hasActionableTip } from '@/lib/formatReport';
 import { callNumber, shareText, textNumber } from '@/lib/linking';
 import { colors, radius, spacing } from '@/theme';
 
 export default function ReportScreen() {
-  const { draft, drafts, update, addFromCamera, addFromLibrary, removePhoto, captureLocation, saveDraft, loadDraft, newDraft } =
-    useReport();
+  const router = useRouter();
+  const { draft, update, addFromCamera, addFromLibrary, removePhoto, captureLocation, newDraft } = useReport();
+  const { apiBase, reporterId, refresh } = useSession();
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const tip = formatTip(draft);
   const coords = formatCoordinates(draft.latitude, draft.longitude);
   const usHotline = hotlines[0];
@@ -27,11 +34,27 @@ export default function ReportScreen() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const postToPlatform = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const created = await submitReport(apiBase, draft, reporterId);
+      await refresh();
+      newDraft();
+      router.push(`/tip/${created.id}` as Href);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Could not post this tip');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Screen>
-      <Text style={styles.hero}>Build a tip</Text>
+      <Text style={styles.hero}>Snap and post</Text>
       <Text style={styles.lede}>
-        Law enforcement needs actionable facts: place, time, vehicles, and people. Then make the call.
+        Take a picture if you can do it safely, drop a pin, and post it to the officer map. Still call 911 if
+        it is happening now.
       </Text>
 
       <View style={styles.block}>
@@ -47,10 +70,19 @@ export default function ReportScreen() {
         />
       </View>
 
+      <Text style={styles.section}>Pin it on the map</Text>
+      <Text style={styles.meta}>Use GPS or tap the map to drop a pin officers can open.</Text>
+      <View style={styles.map}>
+        <LiveMap
+          apiBase={apiBase}
+          pickMode
+          onPick={({ latitude, longitude }) => update({ latitude, longitude })}
+        />
+      </View>
       <View style={styles.block}>
         <ActionButton
-          label={coords ? `Location captured · ${coords}` : 'Use current location'}
-          hint="Adds GPS. You can still type the mile marker or truck-stop name."
+          label={coords ? `GPS captured · ${coords}` : 'Use current GPS'}
+          hint="Adds your phone location. You can still type the truck-stop name."
           onPress={captureLocation}
         />
       </View>
@@ -86,49 +118,32 @@ export default function ReportScreen() {
         />
       </View>
 
-      <Text style={styles.section}>Read this to the operator</Text>
-      <View style={styles.preview}>
-        <Text style={styles.previewText}>{tip}</Text>
-      </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.actions}>
         <ActionButton
-          tone="danger"
-          label="Call 911 with this tip"
-          hint="Emergency or still in progress"
-          onPress={() => callNumber(EMERGENCY_PHONE)}
-          disabled={!hasActionableTip(draft)}
-        />
-        <ActionButton
           tone="amber"
-          label={`Call hotline ${usHotline.displayPhone}`}
-          onPress={() => callNumber(usHotline.phone)}
+          label={busy ? 'Posting to the platform…' : 'Post tip to the officer map'}
+          hint="Photo, pin, and write-up become a live case"
+          onPress={postToPlatform}
+          disabled={busy || !hasActionableTip(draft)}
         />
         <ActionButton
-          label={`Text tip to ${TEXT_TIP.display}`}
-          onPress={() => textNumber(TEXT_TIP.number, tip)}
+          tone="danger"
+          label="Call 911"
+          hint="Immediate danger or a crime in progress"
+          onPress={() => callNumber(EMERGENCY_PHONE)}
         />
         <ActionButton
           tone="ghost"
-          label={copied ? 'Copied to clipboard' : 'Copy tip'}
-          onPress={copyTip}
+          label={`Call hotline ${usHotline.displayPhone}`}
+          onPress={() => callNumber(usHotline.phone)}
         />
+        <ActionButton label={`Text tip to ${TEXT_TIP.display}`} onPress={() => textNumber(TEXT_TIP.number, tip)} />
+        <ActionButton tone="ghost" label={copied ? 'Copied to clipboard' : 'Copy tip'} onPress={copyTip} />
         <ActionButton tone="ghost" label="Share tip" onPress={() => shareText(tip)} />
-        <ActionButton tone="ghost" label="Save draft on this device" onPress={saveDraft} />
         <ActionButton tone="ghost" label="Start a new tip" onPress={newDraft} />
       </View>
-
-      {drafts.length > 0 ? (
-        <View>
-          <Text style={styles.section}>Saved on this phone</Text>
-          {drafts.map((item) => (
-            <Pressable key={item.id} onPress={() => loadDraft(item.id)} style={styles.draft}>
-              <Text style={styles.draftTitle}>{tipSummary(item)}</Text>
-              <Text style={styles.draftMeta}>{formatObservedAt(item.updatedAt)}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
     </Screen>
   );
 }
@@ -155,44 +170,29 @@ const styles = StyleSheet.create({
   meta: {
     color: colors.textMuted,
     fontSize: 13,
+    marginTop: 8,
+    lineHeight: 18,
   },
   section: {
     marginTop: spacing.xl,
-    marginBottom: spacing.sm,
     color: colors.text,
     fontSize: 20,
     fontWeight: '800',
   },
-  preview: {
-    backgroundColor: colors.bgElevated,
-    borderColor: colors.border,
-    borderWidth: 1,
+  map: {
+    height: 200,
+    marginTop: spacing.sm,
     borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  previewText: {
-    color: colors.text,
-    lineHeight: 22,
-    fontSize: 15,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   actions: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
     gap: spacing.sm,
   },
-  draft: {
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  draftTitle: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  draftMeta: {
-    color: colors.textMuted,
-    marginTop: 4,
+  error: {
+    color: colors.red,
+    marginTop: spacing.md,
   },
 });
