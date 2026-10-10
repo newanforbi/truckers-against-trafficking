@@ -38,6 +38,26 @@ describe('ReportStore', () => {
     assert.equal(list[0]?.id, second.id);
     assert.equal(list[1]?.id, first.id);
     assert.equal(store.get(first.id)?.status, 'new');
+    assert.equal(first.title, 'Brief drop-off');
+    assert.equal(first.score, 1);
+  });
+
+  it('counts votes and comments on a post', () => {
+    const store = tempStore();
+    const report = store.create({
+      title: 'Camry watching the fuel island',
+      locationLabel: "Love's Dallas",
+      latitude: 32.73,
+      longitude: -96.91,
+      vehicles: '',
+      people: '',
+      observation: 'Man never got out of the car.',
+      reporterId: 'driver-1',
+      photos: [],
+    });
+    assert.equal(store.vote(report.id, 1).score, 2);
+    assert.equal(store.addComment(report.id, 'driver-2', 'Call it in from the lot.').body, 'Call it in from the lot.');
+    assert.equal(store.get(report.id)?.comments.length, 1);
   });
 
   it('rejects a report with no map pin', () => {

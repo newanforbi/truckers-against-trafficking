@@ -6,6 +6,7 @@ export function createEmptyDraft(now = new Date()): TipDraft {
     id: `tip-${now.getTime()}`,
     updatedAt: iso,
     observedAt: iso,
+    title: '',
     locationLabel: '',
     latitude: null,
     longitude: null,
@@ -41,9 +42,9 @@ export function formatCoordinates(
 }
 
 export function hasActionableTip(draft: TipDraft): boolean {
-  const location = draft.locationLabel.trim() || formatCoordinates(draft.latitude, draft.longitude);
-  const facts = [draft.vehicles, draft.people, draft.observation].some((value) => value.trim().length > 0);
-  return Boolean(location || facts || draft.photos.length > 0);
+  const facts =
+    [draft.title, draft.observation].some((value) => value.trim().length > 0) || draft.photos.length > 0;
+  return facts;
 }
 
 export function formatTip(draft: TipDraft): string {

@@ -6,10 +6,10 @@ This is an independent project inspired by [Truckers Against Trafficking](https:
 
 ## What it does
 
-- **Live map** — Dark map of tips with photo pins, like a highway incident feed
-- **Snap** — Camera or library, GPS or tap-to-pin, then post to the platform
-- **Officer desk** — Restricted case file: photos, notes, and status (`new` → `reviewing` → `forwarded` → `closed`)
-- **Learn / Call** — Red flags, 911, and national hotlines
+- **Home** — Reddit-style feed of truck-stop reports. Location fills from GPS. Sort by hot, new, or near.
+- **Post** — Camera or library, auto truck-stop location, then publish to the feed
+- **Thread** — Photo, votes, comments. Officers can still update case status.
+- **Call** — 911 and national hotlines
 
 Emergency: **911**. U.S. hotline: **1-888-373-7888**. Text: **233733**.
 

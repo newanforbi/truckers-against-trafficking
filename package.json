@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "server": "tsx server/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/formatReport.test.ts server/store.test.ts"
+    "test": "tsx --test src/lib/formatReport.test.ts src/lib/geo.test.ts server/store.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

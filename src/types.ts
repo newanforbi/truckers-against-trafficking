@@ -2,6 +2,7 @@ export type TipDraft = {
   id: string;
   updatedAt: string;
   observedAt: string;
+  title: string;
   locationLabel: string;
   latitude: number | null;
   longitude: number | null;

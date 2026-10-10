@@ -12,10 +12,18 @@ export type PlatformPhoto = {
   url: string;
 };
 
+export type PlatformComment = {
+  id: string;
+  createdAt: string;
+  author: string;
+  body: string;
+};
+
 export type PlatformReport = {
   id: string;
   createdAt: string;
   observedAt: string;
+  title: string;
   locationLabel: string;
   latitude: number;
   longitude: number;
@@ -25,6 +33,8 @@ export type PlatformReport = {
   status: ReportStatus;
   officerNotes: string;
   reporterId: string;
+  score: number;
+  comments: PlatformComment[];
   photos: PlatformPhoto[];
 };
 
@@ -93,6 +103,7 @@ export async function submitReport(
     throw new Error('Drop a pin or capture GPS so officers can find this on the map.');
   }
   const form = new FormData();
+  form.append('title', draft.title);
   form.append('locationLabel', draft.locationLabel);
   form.append('latitude', String(draft.latitude));
   form.append('longitude', String(draft.longitude));
@@ -107,6 +118,37 @@ export async function submitReport(
   const response = await fetch(`${apiBase}/api/reports`, {
     method: 'POST',
     body: form,
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { report: PlatformReport };
+  return payload.report;
+}
+
+export async function voteReport(apiBase: string, id: string, delta: 1 | -1): Promise<PlatformReport> {
+  const response = await fetch(`${apiBase}/api/reports/${id}/vote`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ delta }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { report: PlatformReport };
+  return payload.report;
+}
+
+export async function commentOnReport(
+  apiBase: string,
+  id: string,
+  author: string,
+  body: string,
+): Promise<PlatformReport> {
+  const response = await fetch(`${apiBase}/api/reports/${id}/comments`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ author, body }),
   });
   if (!response.ok) {
     throw new Error(await parseError(response));

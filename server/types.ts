@@ -7,10 +7,18 @@ export type StoredPhoto = {
   filename: string;
 };
 
+export type StoredComment = {
+  id: string;
+  createdAt: string;
+  author: string;
+  body: string;
+};
+
 export type StoredReport = {
   id: string;
   createdAt: string;
   observedAt: string;
+  title: string;
   locationLabel: string;
   latitude: number;
   longitude: number;
@@ -20,6 +28,9 @@ export type StoredReport = {
   status: ReportStatus;
   officerNotes: string;
   reporterId: string;
+  score: number;
+  seedKey?: string;
+  comments: StoredComment[];
   photos: StoredPhoto[];
 };
 
@@ -34,6 +45,7 @@ export type PublicReport = Omit<StoredReport, 'photos'> & {
 
 export type CreateReportInput = {
   observedAt?: string;
+  title?: string;
   locationLabel: string;
   latitude: number;
   longitude: number;

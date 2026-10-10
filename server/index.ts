@@ -94,6 +94,7 @@ app.post('/api/reports', upload.array('photos', 4), (req, res) => {
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     const report = store.create({
       observedAt: String(req.body.observedAt ?? ''),
+      title: String(req.body.title ?? ''),
       locationLabel: String(req.body.locationLabel ?? ''),
       latitude,
       longitude,
@@ -106,6 +107,32 @@ app.post('/api/reports', upload.array('photos', 4), (req, res) => {
     res.status(201).json({ report: toPublic(req, report) });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid report' });
+  }
+});
+
+app.post('/api/reports/:id/vote', (req, res) => {
+  try {
+    const delta = Number(req.body.delta) >= 0 ? 1 : -1;
+    const report = store.vote(paramId(req), delta);
+    res.json({ report: toPublic(req, report) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Vote failed';
+    res.status(message === 'Report not found' ? 404 : 400).json({ error: message });
+  }
+});
+
+app.post('/api/reports/:id/comments', (req, res) => {
+  try {
+    store.addComment(paramId(req), String(req.body.author ?? 'anonymous'), String(req.body.body ?? ''));
+    const report = store.get(paramId(req));
+    if (!report) {
+      res.status(404).json({ error: 'Report not found' });
+      return;
+    }
+    res.status(201).json({ report: toPublic(req, report) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Comment failed';
+    res.status(message === 'Report not found' ? 404 : 400).json({ error: message });
   }
 });
 

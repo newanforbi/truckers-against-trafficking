@@ -1,49 +1,51 @@
-import * as Clipboard from 'expo-clipboard';
-import { type Href, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/ActionButton';
 import { Field } from '@/components/Field';
-import { LiveMap } from '@/components/LiveMap';
-import { PhotoStrip } from '@/components/PhotoStrip';
-import { SafetyBanner } from '@/components/SafetyBanner';
 import { Screen } from '@/components/Screen';
 import { useReport } from '@/context/ReportContext';
 import { useSession } from '@/context/SessionContext';
-import { EMERGENCY_PHONE, TEXT_TIP, hotlines } from '@/data/hotlines';
 import { submitReport } from '@/lib/api';
-import { formatCoordinates, formatObservedAt, formatTip, hasActionableTip } from '@/lib/formatReport';
-import { callNumber, shareText, textNumber } from '@/lib/linking';
+import { hasActionableTip } from '@/lib/formatReport';
 import { colors, radius, spacing } from '@/theme';
 
-export default function ReportScreen() {
+export default function ComposeScreen() {
   const router = useRouter();
-  const { draft, update, addFromCamera, addFromLibrary, removePhoto, captureLocation, newDraft } = useReport();
-  const { apiBase, reporterId, refresh } = useSession();
-  const [copied, setCopied] = useState(false);
+  const { camera } = useLocalSearchParams<{ camera?: string }>();
+  const { draft, update, addFromCamera, addFromLibrary, removePhoto, applyHere, newDraft } = useReport();
+  const { apiBase, reporterId, refresh, here } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const tip = formatTip(draft);
-  const coords = formatCoordinates(draft.latitude, draft.longitude);
-  const usHotline = hotlines[0];
+  const openedCamera = useRef(false);
 
-  const copyTip = async () => {
-    await Clipboard.setStringAsync(tip);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  useEffect(() => {
+    if (here) {
+      applyHere(here);
+    }
+  }, [here, applyHere]);
 
-  const postToPlatform = async () => {
+  useEffect(() => {
+    if (camera === '1' && !openedCamera.current) {
+      openedCamera.current = true;
+      addFromCamera().catch(() => undefined);
+    }
+  }, [camera, addFromCamera]);
+
+  const post = async () => {
     setBusy(true);
     setError('');
     try {
       const created = await submitReport(apiBase, draft, reporterId);
       await refresh();
       newDraft();
-      router.push(`/tip/${created.id}` as Href);
+      if (here) {
+        applyHere(here);
+      }
+      router.replace(`/tip/${created.id}` as Href);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Could not post this tip');
+      setError(nextError instanceof Error ? nextError.message : 'Could not post');
     } finally {
       setBusy(false);
     }
@@ -51,69 +53,51 @@ export default function ReportScreen() {
 
   return (
     <Screen>
-      <Text style={styles.hero}>Snap and post</Text>
-      <Text style={styles.lede}>
-        Take a picture if you can do it safely, drop a pin, and post it to the officer map. Still call 911 if
-        it is happening now.
-      </Text>
+      <Text style={styles.kicker}>{draft.locationLabel || here?.label || 'Finding your stop…'}</Text>
+      <Text style={styles.hero}>New post</Text>
 
-      <View style={styles.block}>
-        <SafetyBanner />
-      </View>
-
-      <View style={styles.block}>
-        <PhotoStrip
-          photos={draft.photos}
-          onAddCamera={addFromCamera}
-          onAddLibrary={addFromLibrary}
-          onRemove={removePhoto}
-        />
-      </View>
-
-      <Text style={styles.section}>Pin it on the map</Text>
-      <Text style={styles.meta}>Use GPS or tap the map to drop a pin officers can open.</Text>
-      <View style={styles.map}>
-        <LiveMap
-          apiBase={apiBase}
-          pickMode
-          onPick={({ latitude, longitude }) => update({ latitude, longitude })}
-        />
-      </View>
-      <View style={styles.block}>
-        <ActionButton
-          label={coords ? `GPS captured · ${coords}` : 'Use current GPS'}
-          hint="Adds your phone location. You can still type the truck-stop name."
-          onPress={captureLocation}
-        />
+      <View style={styles.photos}>
+        {draft.photos.length === 0 ? (
+          <View style={styles.photoRow}>
+            <Pressable style={styles.snap} onPress={addFromCamera}>
+              <Text style={styles.snapTitle}>Camera</Text>
+              <Text style={styles.snapHint}>Snap what you see</Text>
+            </Pressable>
+            <Pressable style={styles.snap} onPress={addFromLibrary}>
+              <Text style={styles.snapTitle}>Library</Text>
+              <Text style={styles.snapHint}>Attach a photo</Text>
+            </Pressable>
+          </View>
+        ) : (
+          draft.photos.map((uri) => (
+            <View key={uri} style={styles.previewWrap}>
+              <Image source={{ uri }} style={styles.preview} />
+              <Pressable onPress={() => removePhoto(uri)}>
+                <Text style={styles.remove}>Remove</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
       </View>
 
       <View style={styles.fields}>
         <Field
-          label="Where"
+          label="Title"
+          value={draft.title}
+          onChangeText={(title) => update({ title })}
+          placeholder="Van looping the back row every 15 minutes"
+        />
+        <Field
+          label="Truck stop"
           value={draft.locationLabel}
           onChangeText={(locationLabel) => update({ locationLabel })}
-          placeholder="I-80 WB, mile 142, TA stall 37"
-        />
-        <Text style={styles.meta}>Observed {formatObservedAt(draft.observedAt)}</Text>
-        <Field
-          label="Vehicles"
-          value={draft.vehicles}
-          onChangeText={(vehicles) => update({ vehicles })}
-          placeholder="White Sprinter, plate, USDOT, truck number"
-          multiline
+          placeholder="TA, I-70 exit 359"
         />
         <Field
-          label="People"
-          value={draft.people}
-          onChangeText={(people) => update({ people })}
-          placeholder="Height, clothing, who appeared in control"
-          multiline
-        />
-        <Field
-          label="What you saw"
+          label="What happened"
           value={draft.observation}
           onChangeText={(observation) => update({ observation })}
-          placeholder="Dropped at a truck and picked up about 15 minutes later"
+          placeholder="Optional details, vehicles, plates"
           multiline
         />
       </View>
@@ -123,69 +107,71 @@ export default function ReportScreen() {
       <View style={styles.actions}>
         <ActionButton
           tone="amber"
-          label={busy ? 'Posting to the platform…' : 'Post tip to the officer map'}
-          hint="Photo, pin, and write-up become a live case"
-          onPress={postToPlatform}
+          label={busy ? 'Posting…' : 'Post to r/truckstops'}
+          onPress={post}
           disabled={busy || !hasActionableTip(draft)}
         />
-        <ActionButton
-          tone="danger"
-          label="Call 911"
-          hint="Immediate danger or a crime in progress"
-          onPress={() => callNumber(EMERGENCY_PHONE)}
-        />
-        <ActionButton
-          tone="ghost"
-          label={`Call hotline ${usHotline.displayPhone}`}
-          onPress={() => callNumber(usHotline.phone)}
-        />
-        <ActionButton label={`Text tip to ${TEXT_TIP.display}`} onPress={() => textNumber(TEXT_TIP.number, tip)} />
-        <ActionButton tone="ghost" label={copied ? 'Copied to clipboard' : 'Copy tip'} onPress={copyTip} />
-        <ActionButton tone="ghost" label="Share tip" onPress={() => shareText(tip)} />
-        <ActionButton tone="ghost" label="Start a new tip" onPress={newDraft} />
+        <ActionButton tone="ghost" label="Add another photo" onPress={addFromCamera} />
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  kicker: {
+    color: colors.amber,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   hero: {
     color: colors.text,
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
+    marginTop: 4,
   },
-  lede: {
-    color: colors.textMuted,
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 8,
-  },
-  block: {
+  photos: {
     marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  snap: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 88,
+    justifyContent: 'center',
+  },
+  snapTitle: {
+    color: colors.text,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  snapHint: {
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+  previewWrap: {
+    gap: 6,
+  },
+  preview: {
+    width: '100%',
+    height: 200,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgElevated,
+  },
+  remove: {
+    color: colors.amberSoft,
+    fontWeight: '700',
   },
   fields: {
     marginTop: spacing.lg,
     gap: spacing.md,
-  },
-  meta: {
-    color: colors.textMuted,
-    fontSize: 13,
-    marginTop: 8,
-    lineHeight: 18,
-  },
-  section: {
-    marginTop: spacing.xl,
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  map: {
-    height: 200,
-    marginTop: spacing.sm,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   actions: {
     marginTop: spacing.lg,

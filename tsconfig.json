@@ -7,5 +7,5 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "src/**/*.test.ts", "server/**/*.test.ts"]
+  "exclude": ["node_modules", "src/**/*.test.ts", "src/lib/geo.test.ts", "server/**/*.test.ts"]
 }

@@ -1,8 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Alert } from 'react-native';
 
+import type { Here } from '@/context/SessionContext';
 import { createEmptyDraft } from '@/lib/formatReport';
 import { loadActiveDraft, loadDrafts, saveActiveDraft, saveDrafts } from '@/lib/storage';
 import type { TipDraft } from '@/types';
@@ -16,6 +17,7 @@ type ReportContextValue = {
   addFromLibrary: () => Promise<void>;
   removePhoto: (uri: string) => void;
   captureLocation: () => Promise<void>;
+  applyHere: (here: Here) => void;
   saveDraft: () => Promise<void>;
   loadDraft: (id: string) => void;
   newDraft: () => void;
@@ -45,7 +47,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
       }
       setDrafts(storedDrafts);
       if (active) {
-        setDraft(active);
+        setDraft({ ...createEmptyDraft(), ...active, title: active.title ?? '' });
       }
       setReady(true);
     })();
@@ -166,6 +168,19 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     setDraft(createEmptyDraft());
   };
 
+  const applyHere = useCallback((here: Here) => {
+    setDraft((current) => {
+      if (current.latitude != null && current.locationLabel.trim()) {
+        return current;
+      }
+      return withUpdate(current, {
+        latitude: current.latitude ?? here.latitude,
+        longitude: current.longitude ?? here.longitude,
+        locationLabel: current.locationLabel.trim() || here.label,
+      });
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       draft,
@@ -176,6 +191,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
       addFromLibrary,
       removePhoto,
       captureLocation,
+      applyHere,
       saveDraft,
       loadDraft,
       newDraft,
