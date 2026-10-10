@@ -23,6 +23,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   bottomSpacer: {
     height: 48,
