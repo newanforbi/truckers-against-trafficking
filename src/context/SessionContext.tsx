@@ -98,18 +98,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const position = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        let label = 'your location';
+        let label = `${position.coords.latitude.toFixed(3)}, ${position.coords.longitude.toFixed(3)}`;
         try {
           const places = await Location.reverseGeocodeAsync({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
           const place = places[0];
-          if (place) {
-            label = [place.name, place.city, place.region].filter(Boolean).join(', ');
+          const pretty = [place?.name, place?.city, place?.region].filter(Boolean).join(', ');
+          if (pretty) {
+            label = pretty;
           }
         } catch {
-          label = `${position.coords.latitude.toFixed(3)}, ${position.coords.longitude.toFixed(3)}`;
+          // Keep the coordinates.
         }
         if (!cancelled) {
           setHere({

@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 
 import type { Here } from '@/context/SessionContext';
 import { createEmptyDraft } from '@/lib/formatReport';
-import { loadActiveDraft, loadDrafts, saveActiveDraft, saveDrafts } from '@/lib/storage';
+import { loadDrafts, saveActiveDraft, saveDrafts } from '@/lib/storage';
 import type { TipDraft } from '@/types';
 
 type ReportContextValue = {
@@ -41,14 +41,12 @@ export function ReportProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [storedDrafts, active] = await Promise.all([loadDrafts(), loadActiveDraft()]);
+      const storedDrafts = await loadDrafts();
       if (cancelled) {
         return;
       }
       setDrafts(storedDrafts);
-      if (active) {
-        setDraft({ ...createEmptyDraft(), ...active, title: active.title ?? '' });
-      }
+      setDraft(createEmptyDraft());
       setReady(true);
     })();
     return () => {
@@ -169,16 +167,13 @@ export function ReportProvider({ children }: { children: ReactNode }) {
   };
 
   const applyHere = useCallback((here: Here) => {
-    setDraft((current) => {
-      if (current.latitude != null && current.locationLabel.trim()) {
-        return current;
-      }
-      return withUpdate(current, {
-        latitude: current.latitude ?? here.latitude,
-        longitude: current.longitude ?? here.longitude,
-        locationLabel: current.locationLabel.trim() || here.label,
-      });
-    });
+    setDraft((current) =>
+      withUpdate(current, {
+        latitude: here.latitude,
+        longitude: here.longitude,
+        locationLabel: here.label,
+      }),
+    );
   }, []);
 
   const value = useMemo(
