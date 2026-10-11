@@ -157,6 +157,91 @@ export async function commentOnReport(
   return payload.report;
 }
 
+export type NearbyAlert = {
+  id: string;
+  reporterId: string;
+  reportId: string | null;
+  title: string;
+  body: string;
+  miles: number | null;
+  createdAt: string;
+  read: boolean;
+};
+
+export type DeviceSubscriber = {
+  reporterId: string;
+  latitude: number;
+  longitude: number;
+  radiusMiles: number;
+  enabled: boolean;
+  pushToken: string | null;
+  updatedAt: string;
+};
+
+export async function registerDevice(
+  apiBase: string,
+  input: {
+    reporterId: string;
+    latitude?: number;
+    longitude?: number;
+    radiusMiles?: number;
+    enabled?: boolean;
+    pushToken?: string | null;
+  },
+): Promise<DeviceSubscriber> {
+  const response = await fetch(`${apiBase}/api/devices/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { subscriber: DeviceSubscriber };
+  return payload.subscriber;
+}
+
+export async function fetchAlerts(
+  apiBase: string,
+  reporterId: string,
+): Promise<{ alerts: NearbyAlert[]; unread: NearbyAlert[] }> {
+  const response = await fetch(`${apiBase}/api/alerts?reporterId=${encodeURIComponent(reporterId)}`);
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { alerts?: NearbyAlert[]; unread?: NearbyAlert[] };
+  return {
+    alerts: payload.alerts ?? [],
+    unread: payload.unread ?? [],
+  };
+}
+
+export async function markAlertRead(apiBase: string, id: string, reporterId: string): Promise<NearbyAlert> {
+  const response = await fetch(`${apiBase}/api/alerts/${id}/read`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reporterId }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { alert: NearbyAlert };
+  return payload.alert;
+}
+
+export async function sendTestAlert(apiBase: string, reporterId: string): Promise<NearbyAlert> {
+  const response = await fetch(`${apiBase}/api/alerts/test`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reporterId }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  const payload = (await response.json()) as { alert: NearbyAlert };
+  return payload.alert;
+}
+
 export async function updateReport(
   apiBase: string,
   id: string,

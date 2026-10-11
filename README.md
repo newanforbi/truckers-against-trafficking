@@ -9,7 +9,8 @@ This is an independent project inspired by [Truckers Against Trafficking](https:
 - **Home** — Reddit-style feed of truck-stop reports. Location fills from GPS. Sort by hot, new, or near.
 - **Post** — Camera or library, auto truck-stop location, then publish to the feed
 - **Thread** — Photo, votes, comments. Officers can still update case status.
-- **Call** — 911 and national hotlines
+- **Call** — 911, national hotlines, and nearby push alerts
+- **Nearby alerts** — when a new post lands inside your radius, the app shows a banner and can send a phone notification. Authors are not pinged about their own posts.
 
 Emergency: **911**. U.S. hotline: **1-888-373-7888**. Text: **233733**.
 
@@ -35,6 +36,8 @@ Or on a phone: `npm start` and scan the QR code with Expo Go.
 - Demo officer key: `WATCH`
 
 If you open Expo Go on a physical phone, set **Platform URL** on the Call tab to your computer’s LAN address, for example `http://192.168.1.20:3001`.
+
+Turn on **Nearby alerts** on the Call tab and pick 25 / 50 / 100 / 250 miles. Use **Send test alert** to see the banner on this device. Real Expo push tokens need an EAS `projectId`; the inbox and in-app banner still work without one.
 
 ## Checks
 

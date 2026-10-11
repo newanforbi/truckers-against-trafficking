@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FeedPost } from '@/components/FeedPost';
+import { useAlerts } from '@/context/AlertContext';
 import { useSession } from '@/context/SessionContext';
 import { voteReport } from '@/lib/api';
 import { milesBetween } from '@/lib/geo';
@@ -15,6 +16,7 @@ type Sort = 'hot' | 'new' | 'near';
 export default function FeedScreen() {
   const router = useRouter();
   const { reports, error, apiBase, here, refresh } = useSession();
+  const { unreadCount } = useAlerts();
   const [sort, setSort] = useState<Sort>('hot');
 
   const posts = useMemo(() => {
@@ -45,6 +47,19 @@ export default function FeedScreen() {
           <Text style={styles.sub}>r/truckstops</Text>
           <Text style={styles.near}>{here ? here.label : 'Location off · all stops'}</Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={unreadCount > 0 ? `${unreadCount} nearby alerts` : 'Nearby alerts'}
+          onPress={() => router.push('/call')}
+          style={styles.bell}
+        >
+          <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          {unreadCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => router.push('/call')}
@@ -114,6 +129,29 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
     fontSize: 13,
+  },
+  bell: {
+    width: 40,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '800',
   },
   sos: {
     backgroundColor: colors.red,

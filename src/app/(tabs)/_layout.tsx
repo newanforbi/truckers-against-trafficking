@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
+import { useAlerts } from '@/context/AlertContext';
 import { colors } from '@/theme';
 
 export default function TabsLayout() {
+  const { unreadCount } = useAlerts();
   return (
     <Tabs
       screenOptions={{
@@ -48,6 +50,8 @@ export default function TabsLayout() {
         name="call"
         options={{
           title: 'Call',
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.red, color: colors.white },
           tabBarIcon: ({ color, size }) => <Ionicons name="call-outline" color={color} size={size} />,
         }}
       />

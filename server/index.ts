@@ -6,7 +6,9 @@ import cors from 'cors';
 import express from 'express';
 import multer from 'multer';
 
+import { sendExpoPush } from './push';
 import { seedIfEmpty } from './seed';
+import { AlertStore } from './subscribers';
 import { ReportStore } from './store';
 import { REPORT_STATUSES, type PublicReport, type ReportStatus, type StoredReport } from './types';
 
@@ -20,6 +22,7 @@ const officerKey = process.env.OFFICER_KEY ?? 'WATCH';
 mkdirSync(uploadsDir, { recursive: true });
 
 const store = new ReportStore(dataDir);
+const alerts = new AlertStore(dataDir);
 seedIfEmpty(store, uploadsDir, join(root, 'assets', 'splash-icon.png'));
 
 const upload = multer({
@@ -104,7 +107,14 @@ app.post('/api/reports', upload.array('photos', 4), (req, res) => {
       reporterId: String(req.body.reporterId ?? 'anonymous'),
       photos: files.map((file) => ({ id: randomUUID(), filename: file.filename })),
     });
-    res.status(201).json({ report: toPublic(req, report) });
+    const createdAlerts = alerts.notifyNearby(report);
+    createdAlerts.forEach((alert) => {
+      const subscriber = alerts.getSubscriber(alert.reporterId);
+      if (subscriber) {
+        sendExpoPush(subscriber, alert).catch(() => undefined);
+      }
+    });
+    res.status(201).json({ report: toPublic(req, report), alerts: createdAlerts.length });
   } catch (error) {
     res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid report' });
   }
@@ -134,6 +144,68 @@ app.post('/api/reports/:id/comments', (req, res) => {
     const message = error instanceof Error ? error.message : 'Comment failed';
     res.status(message === 'Report not found' ? 404 : 400).json({ error: message });
   }
+});
+
+app.post('/api/devices/register', (req, res) => {
+  try {
+    const subscriber = alerts.register({
+      reporterId: String(req.body.reporterId ?? ''),
+      latitude: req.body.latitude == null ? undefined : Number(req.body.latitude),
+      longitude: req.body.longitude == null ? undefined : Number(req.body.longitude),
+      radiusMiles: req.body.radiusMiles == null ? undefined : Number(req.body.radiusMiles),
+      enabled: typeof req.body.enabled === 'boolean' ? req.body.enabled : undefined,
+      pushToken: req.body.pushToken == null ? undefined : String(req.body.pushToken),
+    });
+    res.json({ subscriber });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Register failed' });
+  }
+});
+
+app.get('/api/alerts', (req, res) => {
+  const reporterId = String(req.query.reporterId ?? '');
+  if (!reporterId.trim()) {
+    res.status(400).json({ error: 'reporterId is required' });
+    return;
+  }
+  res.json({
+    alerts: alerts.listAlerts(reporterId),
+    unread: alerts.listUnread(reporterId),
+  });
+});
+
+app.post('/api/alerts/test', (req, res) => {
+  try {
+    const reporterId = String(req.body.reporterId ?? '');
+    if (!reporterId.trim()) {
+      throw new Error('reporterId is required');
+    }
+    const subscriber = alerts.getSubscriber(reporterId);
+    const radius = subscriber?.radiusMiles ?? 100;
+    const alert = alerts.createAlert({
+      reporterId,
+      reportId: null,
+      title: 'Nearby truck-stop report',
+      body: `Test alert · ${radius} mi radius · do not approach, call 911 if someone is in danger`,
+      miles: 3.2,
+    });
+    if (subscriber) {
+      sendExpoPush(subscriber, alert).catch(() => undefined);
+    }
+    res.status(201).json({ alert });
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Test alert failed' });
+  }
+});
+
+app.post('/api/alerts/:id/read', (req, res) => {
+  const reporterId = String(req.body.reporterId ?? '');
+  const alert = alerts.markRead(paramId(req), reporterId);
+  if (!alert) {
+    res.status(404).json({ error: 'Alert not found' });
+    return;
+  }
+  res.json({ alert });
 });
 
 app.patch('/api/reports/:id', requireOfficer, (req, res) => {

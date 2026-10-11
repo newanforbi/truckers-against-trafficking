@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { ReactNode } from 'react';
 
+import { AlertBanner } from '@/components/AlertBanner';
+import { AlertProvider } from '@/context/AlertContext';
 import { ReportProvider } from '@/context/ReportContext';
 import { SessionProvider } from '@/context/SessionContext';
 import { colors } from '@/theme';
@@ -23,17 +25,22 @@ function PhoneShell({ children }: { children: ReactNode }) {
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <ReportProvider>
-        <StatusBar style="light" />
-        <PhoneShell>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.bg },
-            }}
-          />
-        </PhoneShell>
-      </ReportProvider>
+      <AlertProvider>
+        <ReportProvider>
+          <StatusBar style="light" />
+          <PhoneShell>
+            <View style={styles.shell}>
+              <AlertBanner />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.bg },
+                }}
+              />
+            </View>
+          </PhoneShell>
+        </ReportProvider>
+      </AlertProvider>
     </SessionProvider>
   );
 }
@@ -53,5 +60,8 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 8,
     borderColor: '#1C3154',
+  },
+  shell: {
+    flex: 1,
   },
 });

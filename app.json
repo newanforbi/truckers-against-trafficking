@@ -18,7 +18,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "The app uses the camera so you can snap evidence for a report. Do not put yourself in danger to take a photo.",
         "NSPhotoLibraryUsageDescription": "The app attaches photos you choose to a tip you can read to 911 or the hotline.",
-        "NSLocationWhenInUseUsageDescription": "The app can attach your current location to a tip so responders know where you are."
+        "NSLocationWhenInUseUsageDescription": "The app can attach your current location to a tip so responders know where you are.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "The app uses your location to alert you when a nearby truck-stop report is posted."
       }
     },
     "android": {
@@ -33,7 +34,9 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ]
     },
     "web": {
@@ -53,6 +56,13 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "The app can attach your current location to a tip so responders know where you are."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#E8A317",
+          "defaultChannel": "nearby-reports"
         }
       ],
       "expo-status-bar"
