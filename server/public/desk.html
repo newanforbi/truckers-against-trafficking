@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Officer desk · See Snap Report</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #08111f;
+        color: #f6f1e8;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        display: grid;
+        grid-template-columns: 1.4fr 360px;
+      }
+      #map {
+        height: 100%;
+      }
+      aside {
+        border-left: 1px solid #2a3d5c;
+        background: #101c31;
+        overflow: auto;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 8px;
+      }
+      .muted {
+        color: #a8b4c8;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+      .card {
+        background: #162744;
+        border: 1px solid #2a3d5c;
+        border-radius: 14px;
+        padding: 12px;
+        margin: 10px 0;
+        cursor: pointer;
+      }
+      .card.active {
+        border-color: #e8a317;
+      }
+      .card img {
+        width: 100%;
+        height: 140px;
+        object-fit: cover;
+        border-radius: 10px;
+        background: #08111f;
+        margin-bottom: 8px;
+      }
+      .kicker {
+        color: #e8a317;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      button,
+      select,
+      textarea,
+      input {
+        width: 100%;
+        margin-top: 8px;
+        border-radius: 10px;
+        border: 1px solid #2a3d5c;
+        background: #08111f;
+        color: #f6f1e8;
+        padding: 10px;
+        font: inherit;
+      }
+      button {
+        background: #e8a317;
+        color: #0b1f3a;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+      }
+      .gate {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        text-align: center;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <aside>
+      <div id="gate" class="gate">
+        <div>
+          <h1>Officer desk</h1>
+          <p class="muted">Restricted map, photos, and case status. Demo key is WATCH.</p>
+          <input id="key" type="password" placeholder="Officer key" />
+          <button id="unlock">Unlock desk</button>
+          <p id="gate-error" class="muted"></p>
+        </div>
+      </div>
+      <div id="desk" class="hidden">
+        <h1>Live tips</h1>
+        <p class="muted">Drivers post photos and pins. Update status after you notify 911, a local agency, or the hotline.</p>
+        <div id="list"></div>
+        <div id="detail"></div>
+      </div>
+    </aside>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const map = L.map('map').setView([39.5, -98.3], 4);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap, &copy; CARTO',
+        maxZoom: 19,
+      }).addTo(map);
+      const layer = L.layerGroup().addTo(map);
+      let reports = [];
+      let selected = null;
+      let officerKey = sessionStorage.getItem('officer-key') || '';
+
+      function headers() {
+        return { 'x-officer-key': officerKey, 'content-type': 'application/json' };
+      }
+
+      function pinColor(status) {
+        if (status === 'forwarded') return '#3DDC97';
+        if (status === 'reviewing') return '#E8A317';
+        if (status === 'closed') return '#A8B4C8';
+        return '#D7263D';
+      }
+
+      function renderMap() {
+        layer.clearLayers();
+        reports.forEach((report) => {
+          const marker = L.circleMarker([report.latitude, report.longitude], {
+            radius: 10,
+            color: '#08111F',
+            fillColor: pinColor(report.status),
+            fillOpacity: 1,
+            weight: 2,
+          }).addTo(layer);
+          marker.on('click', () => select(report.id));
+        });
+      }
+
+      function select(id) {
+        selected = reports.find((item) => item.id === id) || null;
+        renderList();
+        renderDetail();
+        if (selected) {
+          map.setView([selected.latitude, selected.longitude], 11);
+        }
+      }
+
+      function renderList() {
+        const list = document.getElementById('list');
+        list.innerHTML = reports
+          .map((report) => {
+            const photo = report.photos[0];
+            return `<div class="card ${selected?.id === report.id ? 'active' : ''}" data-id="${report.id}">
+              ${photo ? `<img src="${photo.url}" alt="" />` : ''}
+              <div class="kicker">${report.status}</div>
+              <strong>${report.locationLabel || 'Highway tip'}</strong>
+              <div class="muted">${report.observation || report.vehicles || 'Photo attached'}</div>
+            </div>`;
+          })
+          .join('');
+        list.querySelectorAll('.card').forEach((card) => {
+          card.addEventListener('click', () => select(card.dataset.id));
+        });
+      }
+
+      function renderDetail() {
+        const el = document.getElementById('detail');
+        if (!selected) {
+          el.innerHTML = '';
+          return;
+        }
+        const photos = selected.photos
+          .map((photo) => `<img src="${photo.url}" alt="" />`)
+          .join('');
+        el.innerHTML = `
+          <div class="card active">
+            ${photos}
+            <div class="kicker">${selected.status}</div>
+            <strong>${selected.locationLabel}</strong>
+            <p class="muted">${selected.observation}</p>
+            <p class="muted">Vehicles: ${selected.vehicles || '—'}</p>
+            <p class="muted">People: ${selected.people || '—'}</p>
+            <label class="muted">Case status</label>
+            <select id="status">
+              ${['new', 'reviewing', 'forwarded', 'closed']
+                .map((value) => `<option ${value === selected.status ? 'selected' : ''}>${value}</option>`)
+                .join('')}
+            </select>
+            <textarea id="notes" rows="3" placeholder="Officer notes">${selected.officerNotes || ''}</textarea>
+            <button id="save">Save to the case file</button>
+          </div>`;
+        document.getElementById('save').onclick = async () => {
+          const response = await fetch(`/api/reports/${selected.id}`, {
+            method: 'PATCH',
+            headers: headers(),
+            body: JSON.stringify({
+              status: document.getElementById('status').value,
+              officerNotes: document.getElementById('notes').value,
+            }),
+          });
+          if (response.ok) {
+            await load();
+            select(selected.id);
+          }
+        };
+      }
+
+      async function load() {
+        const response = await fetch('/api/reports');
+        const payload = await response.json();
+        reports = payload.reports || [];
+        renderMap();
+        renderList();
+        if (selected) {
+          selected = reports.find((item) => item.id === selected.id) || selected;
+          renderDetail();
+        }
+      }
+
+      async function unlock() {
+        officerKey = document.getElementById('key').value.trim();
+        const probe = reports[0];
+        if (probe) {
+          const response = await fetch(`/api/reports/${probe.id}`, {
+            method: 'PATCH',
+            headers: headers(),
+            body: JSON.stringify({}),
+          });
+          if (!response.ok) {
+            document.getElementById('gate-error').textContent = 'That key is not valid.';
+            return;
+          }
+        } else if (officerKey !== 'WATCH') {
+          document.getElementById('gate-error').textContent = 'That key is not valid.';
+          return;
+        }
+        sessionStorage.setItem('officer-key', officerKey);
+        document.getElementById('gate').classList.add('hidden');
+        document.getElementById('desk').classList.remove('hidden');
+        await load();
+      }
+
+      document.getElementById('unlock').onclick = unlock;
+      if (officerKey) {
+        document.getElementById('key').value = officerKey;
+        unlock();
+      } else {
+        load();
+      }
+      setInterval(() => {
+        if (!document.getElementById('desk').classList.contains('hidden')) {
+          load();
+        }
+      }, 5000);
+    </script>
+  </body>
+</html>
